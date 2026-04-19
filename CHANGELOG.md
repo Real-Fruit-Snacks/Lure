@@ -5,6 +5,20 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.1] — 2026-04-19
+
+### Added
+
+- Each subcommand's `--help` now ends with an "Examples:" section showing realistic invocations:
+  - `lure drop --help` — five examples covering single-payload, authenticated, nested, drop-only, and dry-run
+  - `lure clean --help` — three examples covering default, single-payload, and custom-name + nested
+  - `lure listen --help` — one example
+  - `lure list --help` — anonymous and authenticated enumeration
+
+### Internal
+
+- New `_SubcommandHelpFormatter` class combines `ArgumentDefaultsHelpFormatter` with `RawDescriptionHelpFormatter` so option defaults still render while epilog newlines are preserved.
+
 ## [2.0.0] — 2026-04-19
 
 **Breaking change.** The flat 17-flag interface is gone, replaced by four focused subcommands. Every flag has been renamed for consistency. There is no compatibility shim — v1 invocations will not work.

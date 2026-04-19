@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lure"
+version = "1.0.0"
+description = "SMB hash bait — drops poisoned .url/.scf/.xml payloads to coerce NTLM authentication"
+readme = "README.md"
+requires-python = ">=3.8"
+license = { text = "MIT" }
+authors = [{ name = "Real-Fruit-Snacks" }]
+keywords = ["smb", "ntlm", "responder", "red-team", "pentesting"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Information Technology",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: Security",
+]
+dependencies = [
+    "colorama>=0.4.6",
+]
+
+[project.urls]
+Homepage = "https://github.com/Real-Fruit-Snacks/Lure"
+Repository = "https://github.com/Real-Fruit-Snacks/Lure"
+Issues = "https://github.com/Real-Fruit-Snacks/Lure/issues"
+
+[project.scripts]
+lure = "lure.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["lure*"]

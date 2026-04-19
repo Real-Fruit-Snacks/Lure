@@ -1,0 +1,45 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+*.egg
+sdist/
+wheels/
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Generated payloads (created at runtime in CWD)
+@lure.url
+@lure.scf
+@lure.xml
+
+# Responder logs (if run from repo root)
+Responder-Session.log
+*.db
+logs/
+
+# Claude / local scratch
+CLAUDE.md
+.claude/
+.omc/

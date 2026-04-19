@@ -5,6 +5,49 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0] — 2026-04-19
+
+**Breaking change.** The flat 17-flag interface is gone, replaced by four focused subcommands. Every flag has been renamed for consistency. There is no compatibility shim — v1 invocations will not work.
+
+### Subcommands
+
+```
+lure drop      Drop bait files onto a share and (optionally) start Responder
+lure clean     Remove previously dropped bait from a share
+lure listen    Start Responder only (no upload)
+lure list      Enumerate shares on a target via 'smbclient -L'
+```
+
+### Flag rename / consolidation table
+
+| v1 | v2 | Notes |
+|----|----|-------|
+| `-r`, `--RHOST` | `-t`, `--target` | Drops the Metasploit-ism |
+| `-l`, `--LHOST` | `-c`, `--callback` | Names the role (where auth callbacks land) |
+| `-a`, `--Share` | `-s`, `--share` | Lowercase |
+| `-o`, `--Other` | `-d`, `--dir` | Actually says what it is |
+| `-i`, `--Interface` | `-i`, `--iface` | Shorter |
+| `-d`, `--DOMAIN` + `-U`, `--Username` | `-u`, `--user` | One flag, accepts `user`, `DOMAIN/user`, `DOMAIN\user`, `user@DOMAIN.LOCAL` |
+| `-P`, `--Password` | `--pass` | Frees `-p` for `--payload` and removes the `-u`/`-U` case-collision footgun |
+| `-u/-s/-x/-A` | `-p`, `--payload` | One repeatable flag, accepts `url`/`scf`/`xml`/`all`; default is all three |
+| `--no-responder` | `--no-listen` | Matches the `lure listen` subcommand vocabulary |
+| `--cleanup` | `lure clean` subcommand | A mode is a subcommand, not a flag |
+
+### Added
+
+- **`lure listen` subcommand** for a Responder-only workflow.
+- **`lure list` subcommand** enumerates shares on a target via `smbclient -L`. Supports authentication.
+- **`--dry-run`** on `drop`, `clean`, and `list` prints the exact `smbclient` invocation (shell-quoted via `shlex.quote`, copy-pasteable) without writing payload files or invoking smbclient. Skips prereq checks too, so plans can be made on machines without smbclient installed.
+- **`--no-color` and `$NO_COLOR`** support per [no-color.org](https://no-color.org).
+- **`lure drop` validation** errors if neither `-i/--iface` nor `--no-listen` (nor `--dry-run`) is given. No silent default to either behavior.
+
+### Changed
+
+- Subcommand-organized `--help`. Each `lure <command> --help` shows only the flags relevant to that command, instead of one wall of 17 mixed flags.
+- Long flags are uniformly kebab-case lowercase. The mix of `--RHOST`, `--Username`, and `--ask-pass` from v1 is gone.
+- README command reference is now grouped per-subcommand instead of by flag category.
+- GitHub Pages site updated end-to-end: hero demo, bento cards, capability pills, "How It Works", and usage examples all use v2 commands.
+
 ## [1.1.0] — 2026-04-19
 
 ### Added

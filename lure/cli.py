@@ -150,6 +150,7 @@ def main():
     parser.add_argument("-x", "--xml", action="store_true", help="Drop @lure.xml payload")
     parser.add_argument("-A", "--All", action="store_true", help="Drop all three payloads (@lure.url, @lure.scf, @lure.xml)")
     parser.add_argument("--name", action="store", default="@lure", metavar="BASE", help="Payload basename (default keeps the @ prefix to sort to the top of directory listings)")
+    parser.add_argument("--no-responder", dest="no_responder", action="store_true", help="Drop the payload only — skip the Responder handoff (use when you already have a listener running)")
 
     if not sys.argv[1:]:
         parser.print_help()
@@ -166,7 +167,7 @@ def main():
         print(RED + "Need password if utilizing a username" + RESET)
         sys.exit(2)
 
-    _check_prereqs()
+    _check_prereqs(needs_responder=not args.no_responder)
 
     # Resolve which payloads to generate (explicit flags or --All).
     want_url = args.url or args.All
@@ -194,6 +195,9 @@ def main():
         print(RED + f"[-] smbclient exited with code {rc}" + RESET)
         sys.exit(rc)
 
+    if args.no_responder:
+        print(GREEN + "[+] Payload(s) dropped. Skipping Responder (--no-responder)." + RESET)
+        return
     run_responder(args.Interface)
 
 

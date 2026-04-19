@@ -12,6 +12,8 @@ import time
 
 import colorama
 
+from lure import __version__
+
 # Catppuccin Mocha — water palette
 TEAL     = "\033[38;2;148;226;213m"
 SKY      = "\033[38;2;137;220;235m"
@@ -45,6 +47,7 @@ def main():
         description="Lure — SMB Hash Bait",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
+    parser.add_argument("-V", "--version", action="version", version=f"%(prog)s {__version__}")
     parser.add_argument("-r", "--RHOST", action="store", metavar="IP", help="Target SMB server (RHOST)")
     parser.add_argument("-l", "--LHOST", action="store", metavar="IP", help="Attacker IP embedded in payload UNC paths (LHOST)")
     parser.add_argument("-d", "--DOMAIN", action="store", metavar="NAME", help="Domain for authenticated upload")

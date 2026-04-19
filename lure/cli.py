@@ -7,6 +7,7 @@ NTLM authentication, then hands off to Responder for capture.
 
 import argparse
 import os
+import shutil
 import sys
 import time
 
@@ -26,6 +27,19 @@ YELLOW   = "\033[38;2;249;226;175m"
 RED      = "\033[38;2;243;139;168m"
 MAGENTA  = "\033[38;2;203;166;247m"
 RESET    = "\033[0m"
+
+
+def _check_prereqs(needs_responder=True):
+    """Verify required system tools are on $PATH. Exit 4 if missing."""
+    missing = []
+    if shutil.which("smbclient") is None:
+        missing.append("smbclient")
+    if needs_responder and shutil.which("responder") is None:
+        missing.append("responder")
+    if missing:
+        print(RED + f"Missing required tool(s) on $PATH: {', '.join(missing)}" + RESET)
+        print(YELLOW + f"Install on Kali / Debian: sudo apt install {' '.join(missing)}" + RESET)
+        sys.exit(4)
 
 
 def _banner():
@@ -83,6 +97,8 @@ def main():
 
     if USERNAME is not None and PASSWORD is None:
         print(RED + "Need password if utilizing a username" + RESET)
+
+    _check_prereqs()
 
     def url():
         print(YELLOW + "Making @lure.url \n" + RESET)

